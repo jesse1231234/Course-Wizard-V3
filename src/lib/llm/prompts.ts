@@ -1,0 +1,364 @@
+import { getDesignToolsFormattingGuide } from "./design-tools-reference";
+
+export function buildCanvasGenerationSystemPrompt(): string {
+  return `You are an expert instructional designer specializing in Canvas LMS course development. Your role is to generate complete, ready-to-use course content based on the instructor's design specifications.
+
+When generating content:
+- Create professional, engaging content appropriate for the course level
+- Ensure all content aligns with stated learning objectives
+- Use clear, accessible language
+- Include relevant examples and explanations
+- Create detailed rubrics with clear criteria
+- Design assessment items that measure learning objectives
+- Maintain consistent formatting and structure
+- Format all HTML content using DesignTools structure (provided in user prompt)
+- Use semantic section headings with appropriate icons
+- Use callout boxes for important notes, tips, and warnings
+
+CRITICAL: You must respond with raw JSON only. Do NOT wrap your response in markdown code blocks (no \`\`\`). Do NOT include any text before or after the JSON. Start your response with { and end with }.`;
+}
+
+export function buildCanvasGenerationUserPrompt(
+  answers: Record<string, string | string[]>
+): string {
+  // Helper to safely get answers
+  const getAnswer = (id: string): string => {
+    const val = answers[id];
+    return Array.isArray(val) ? val.join(", ") : val || "";
+  };
+
+  const theme = getAnswer("design-theme") || "dp-flat-sections-2";
+  const designToolsGuide = getDesignToolsFormattingGuide(theme);
+
+  return `## Course Generation Task
+
+Based on the following course design specifications, generate a complete Canvas course structure with full content.
+
+### Course Overview:
+- **Title:** ${getAnswer("course-title")}
+- **Code:** ${getAnswer("course-code")}
+- **Description:** ${getAnswer("course-description")}
+- **Student Level:** ${getAnswer("student-level")}
+- **Delivery Format:** ${getAnswer("delivery-format")}
+- **Duration:** ${getAnswer("course-duration")}
+- **Credit Hours:** ${getAnswer("credit-hours")}
+- **Number of Modules:** ${getAnswer("num-modules")}
+
+### Learning Objectives:
+${getAnswer("learning-objectives")}
+
+### Skill-Building Activities:
+${getAnswer("skill-activities")}
+
+### Skill Assessments (Mastery Evidence):
+${getAnswer("skill-assessments")}
+
+### Module Structure:
+${getAnswer("module-details")}
+
+### Assessment Types:
+${getAnswer("assignment-types")}
+
+### Major Assignments:
+${getAnswer("assignment-details")}
+
+### Rubric Criteria:
+${getAnswer("rubric-criteria")}
+
+### Design Components:
+${getAnswer("design-components")}
+
+${designToolsGuide}
+
+---
+
+## Required Output Format:
+
+Generate a JSON object with this structure:
+
+{
+  "title": "<course title>",
+  "description": "<course description for Canvas>",
+  "welcomeMessage": "<complete welcome message HTML using DesignTools structure>",
+  "modules": [
+    {
+      "id": "<unique id>",
+      "name": "<module name>",
+      "position": <number>,
+      "items": [
+        {
+          "id": "<unique id>",
+          "type": "page" | "assignment" | "discussion" | "quiz",
+          "title": "<item title>",
+          "content": "<full DesignTools-formatted HTML content for pages>",
+          "position": <number>,
+          "points": <number for assignments/quizzes>,
+          "rubric": {
+            "title": "<rubric title>",
+            "criteria": [
+              {
+                "description": "<criterion description>",
+                "points": <max points>,
+                "ratings": [
+                  {"description": "<rating level>", "points": <points>}
+                ]
+              }
+            ]
+          },
+          "questions": [
+            {
+              "type": "multiple_choice" | "short_answer" | "essay",
+              "text": "<question text>",
+              "points": <points>,
+              "answers": [{"text": "<answer>", "correct": true|false}]
+            }
+          ],
+          "prompt": "<discussion prompt for discussion items>"
+        }
+      ]
+    }
+  ]
+}
+
+Generate complete, substantive content for each item:
+- For pages: Include clear lesson content (200-300 words) with DesignTools formatting
+- For assignments: Include clear instructions with DesignTools structure
+- For discussions: Put DesignTools-formatted HTML in the "content" field (dp-content-block sections, callouts, icon headings - but NO dp-wrapper/dp-header). Put a brief plain text summary in the "prompt" field.
+- For quizzes: Include 3-5 questions per quiz
+
+IMPORTANT:
+- All HTML content MUST use DesignTools structure as shown above
+- Use the module position number in each page's dp-header-pre-2 span
+- Discussion "content" fields MUST contain DesignTools HTML with dp-content-block sections and callout boxes
+- Keep the JSON response concise to avoid truncation. Focus on quality over quantity.`;
+}
+
+// ============================================
+// CHUNKED GENERATION PROMPTS
+// ============================================
+
+export function buildCourseStructureSystemPrompt(): string {
+  return `You are an expert instructional designer. Your role is to design the structure of a Canvas LMS course based on instructor specifications.
+
+CRITICAL: You must respond with raw JSON only. Do NOT wrap your response in markdown code blocks. Do NOT include any text before or after the JSON. Start your response with { and end with }.`;
+}
+
+export function buildCourseStructureUserPrompt(
+  answers: Record<string, string | string[]>
+): string {
+  const getAnswer = (id: string): string => {
+    const val = answers[id];
+    return Array.isArray(val) ? val.join(", ") : val || "";
+  };
+
+  const theme = getAnswer("design-theme") || "dp-flat-sections-2";
+  const themeClass = theme === "dp-rounded-headings" ? "dp-rounded-headings" :
+                     theme === "dp-circle-left" ? "dp-circle-left" :
+                     "dp-flat-sections variation-2";
+
+  return `## Course Structure Generation
+
+Based on the following specifications, generate ONLY the course structure (no detailed content yet).
+
+### Course Overview:
+- **Title:** ${getAnswer("course-title")}
+- **Code:** ${getAnswer("course-code")}
+- **Description:** ${getAnswer("course-description")}
+- **Student Level:** ${getAnswer("student-level")}
+- **Duration:** ${getAnswer("course-duration")}
+- **Number of Modules:** ${getAnswer("num-modules")}
+
+### Learning Objectives:
+${getAnswer("learning-objectives")}
+
+### Skill-Building Activities:
+${getAnswer("skill-activities")}
+
+### Module Structure:
+${getAnswer("module-details")}
+
+### Assessment Types:
+${getAnswer("assignment-types")}
+
+### Major Assignments:
+${getAnswer("assignment-details")}
+
+---
+
+## Required Output Format:
+
+Generate a JSON object with this structure (NO detailed content, just structure):
+
+{
+  "title": "<course title>",
+  "description": "<course description>",
+  "welcomeMessage": "<welcome message HTML using DesignTools format - see below>",
+  "modules": [
+    {
+      "id": "module-1",
+      "name": "<module name>",
+      "position": 1,
+      "items": [
+        {
+          "id": "item-1-1",
+          "type": "page" | "assignment" | "discussion" | "quiz",
+          "title": "<item title>",
+          "position": 1
+        }
+      ]
+    }
+  ]
+}
+
+### Welcome Message Format:
+The welcomeMessage MUST use this DesignTools HTML structure:
+
+<div id="dp-wrapper" class="dp-wrapper ${themeClass}">
+    <header class="dp-header ${themeClass}">
+        <h2 class="dp-heading">
+            <span class="dp-header-title">Welcome to {Course Title}</span>
+        </h2>
+    </header>
+    <div class="dp-content-block">
+        <p>{Welcome message content}</p>
+    </div>
+    <div class="dp-content-block">
+        <h3 class="dp-has-icon"><i class="dp-icon fas fa-bullseye" aria-hidden="true"><span class="dp-icon-content" style="display: none;">&nbsp;</span></i>Course Objectives</h3>
+        <ul>
+            <li>{Objective 1}</li>
+            <li>{Objective 2}</li>
+        </ul>
+    </div>
+</div>
+
+Create a logical structure with appropriate item types for each module. Do NOT include page content, rubrics, or questions yet - just the skeleton. The welcomeMessage should be a complete DesignTools-formatted welcome page.`;
+}
+
+export function buildModuleContentSystemPrompt(): string {
+  return `You are an expert instructional designer. Your role is to generate detailed content for a specific module in a Canvas LMS course.
+
+When generating content:
+- Create professional, engaging content appropriate for the course level
+- Ensure content aligns with learning objectives
+- Use clear, accessible language
+- Include relevant examples
+- Format all HTML content using DesignTools structure (provided in user prompt)
+- Use semantic section headings with appropriate icons
+- Use callout boxes for important notes, tips, and warnings
+
+CRITICAL: You must respond with raw JSON only. Do NOT wrap your response in markdown code blocks. Do NOT include any text before or after the JSON. Start your response with { and end with }.`;
+}
+
+export function buildModuleContentUserPrompt(
+  answers: Record<string, string | string[]>,
+  moduleStructure: {
+    id: string;
+    name: string;
+    position: number;
+    items: Array<{ id: string; type: string; title: string; position: number }>;
+  },
+  courseTitle: string
+): string {
+  const getAnswer = (id: string): string => {
+    const val = answers[id];
+    return Array.isArray(val) ? val.join(", ") : val || "";
+  };
+
+  const theme = getAnswer("design-theme") || "dp-flat-sections-2";
+  const designToolsGuide = getDesignToolsFormattingGuide(theme);
+
+  const itemsList = moduleStructure.items
+    .map((item) => `- ${item.title} (${item.type})`)
+    .join("\n");
+
+  return `## Module Content Generation
+
+Generate detailed content for Module ${moduleStructure.position}: "${moduleStructure.name}" in the course "${courseTitle}".
+
+### Course Context:
+- **Learning Objectives:** ${getAnswer("learning-objectives")}
+- **Student Level:** ${getAnswer("student-level")}
+- **Skill-Building Activities:** ${getAnswer("skill-activities")}
+- **Skill Assessments:** ${getAnswer("skill-assessments")}
+- **Assessment Approach:** ${getAnswer("assignment-types")}
+- **Rubric Criteria:** ${getAnswer("rubric-criteria")}
+- **Module Number:** ${moduleStructure.position}
+
+### Module Items to Generate Content For:
+${itemsList}
+
+${designToolsGuide}
+
+---
+
+## Required Output Format:
+
+Generate a JSON object with detailed content for each item:
+
+{
+  "moduleId": "${moduleStructure.id}",
+  "items": [
+    {
+      "id": "<item id>",
+      "type": "page" | "assignment" | "discussion" | "quiz",
+      "title": "<item title>",
+      "content": "<full DesignTools-formatted HTML content for pages, or instructions for assignments>",
+      "position": <number>,
+      "points": <number for assignments/quizzes, omit for pages>,
+      "rubric": {
+        "title": "<rubric title>",
+        "criteria": [
+          {
+            "description": "<criterion>",
+            "points": <max points>,
+            "ratings": [{"description": "<level>", "points": <points>}]
+          }
+        ]
+      },
+      "questions": [
+        {
+          "type": "multiple_choice" | "short_answer" | "essay",
+          "text": "<question>",
+          "points": <points>,
+          "answers": [{"text": "<answer>", "correct": true|false}]
+        }
+      ],
+      "prompt": "<discussion prompt if type is discussion>"
+    }
+  ]
+}
+
+Content guidelines:
+- Pages: 200-300 words covering key concepts, formatted with DesignTools structure
+- Assignments: Clear instructions with DesignTools formatting, include rubric with 3-4 criteria
+- Discussions: The "content" field MUST contain DesignTools-formatted HTML (see discussion format below). The "prompt" field should contain a brief plain text summary.
+- Quizzes: 3-5 questions with answers
+
+### Discussion Content Format
+For discussion items, the "content" field should use dp-content-block sections (NO dp-wrapper or dp-header needed since Canvas shows the discussion title separately):
+
+<div class="dp-content-block">
+    <h3 class="dp-has-icon"><i class="dp-icon fas fa-comments" aria-hidden="true"><span class="dp-icon-content" style="display: none;">&nbsp;</span></i>Discussion Overview</h3>
+    <p>{Context and introduction to the discussion topic}</p>
+</div>
+<div class="dp-content-block">
+    <h3 class="dp-has-icon"><i class="dp-icon fas fa-edit" aria-hidden="true"><span class="dp-icon-content" style="display: none;">&nbsp;</span></i>Guiding Questions</h3>
+    <ol>
+        <li>{Question 1}</li>
+        <li>{Question 2}</li>
+        <li>{Question 3}</li>
+    </ol>
+</div>
+<div class="dp-callout dp-callout-placeholder card dp-callout-position-default dp-callout-type-info dp-callout-color-dp-primary">
+    <div class="dp-callout-side-emphasis"><i class="dp-icon fas fa-info-circle dp-default-icon"><span class="dp-icon-content" style="display: none;">&nbsp;</span></i></div>
+    <div class="card-body">
+        <h3 class="card-title">Participation Requirements</h3>
+        <p class="card-text">{Requirements like reply count, word count, etc.}</p>
+    </div>
+</div>
+
+IMPORTANT: All HTML content in the "content" field MUST use the DesignTools structure shown above, including:
+- The dp-wrapper and dp-header structure with module number ${moduleStructure.position} (for pages and assignments)
+- dp-content-block sections with dp-has-icon headings (for ALL content types including discussions)
+- Callout boxes for important information`;
+}

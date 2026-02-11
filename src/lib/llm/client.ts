@@ -1,0 +1,194 @@
+import { generateText } from "ai";
+import { createOpenAI } from "@ai-sdk/openai";
+import { createAnthropic } from "@ai-sdk/anthropic";
+import { createAzure } from "@ai-sdk/azure";
+
+type LLMProvider = "openai" | "anthropic" | "azure";
+
+function getProvider(): LLMProvider {
+  const provider = process.env.LLM_PROVIDER?.toLowerCase() as LLMProvider;
+  if (provider === "openai" || provider === "anthropic" || provider === "azure") {
+    return provider;
+  }
+  // Auto-detect based on available environment variables
+  if (process.env.AZURE_OPENAI_API_KEY && process.env.AZURE_OPENAI_ENDPOINT) {
+    return "azure";
+  }
+  if (process.env.ANTHROPIC_API_KEY) {
+    return "anthropic";
+  }
+  return "openai";
+}
+
+function getModel() {
+  const provider = getProvider();
+
+  if (provider === "azure") {
+    const azure = createAzure({
+      apiKey: process.env.AZURE_OPENAI_API_KEY,
+      resourceName: extractResourceName(process.env.AZURE_OPENAI_ENDPOINT || ""),
+    });
+    const deploymentName = process.env.AZURE_OPENAI_DEPLOYMENT || "gpt-4";
+    return azure(deploymentName);
+  }
+
+  if (provider === "anthropic") {
+    const anthropic = createAnthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+    });
+    return anthropic("claude-sonnet-4-20250514");
+  }
+
+  const openai = createOpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+  return openai("gpt-4o");
+}
+
+// Extract resource name from Azure endpoint URL
+// e.g., "https://myresource.openai.azure.com" -> "myresource"
+function extractResourceName(endpoint: string): string {
+  try {
+    const url = new URL(endpoint);
+    const hostname = url.hostname;
+    // hostname is like "myresource.openai.azure.com"
+    return hostname.split(".")[0];
+  } catch {
+    // If URL parsing fails, return the endpoint as-is
+    return endpoint;
+  }
+}
+
+export interface LLMMessage {
+  role: "system" | "user" | "assistant";
+  content: string;
+}
+
+export interface LLMOptions {
+  temperature?: number;
+  maxTokens?: number;
+}
+
+export async function generateLLMResponse(
+  messages: LLMMessage[],
+  options: LLMOptions = {}
+): Promise<string> {
+  const model = getModel();
+
+  const { temperature = 0.7, maxTokens = 4096 } = options;
+
+  const systemMessage = messages.find((m) => m.role === "system");
+  const otherMessages = messages.filter((m) => m.role !== "system");
+
+  const result = await generateText({
+    model,
+    system: systemMessage?.content,
+    messages: otherMessages.map((m) => ({
+      role: m.role as "user" | "assistant",
+      content: m.content,
+    })),
+    temperature,
+    maxTokens,
+  });
+
+  return result.text;
+}
+
+// Attempt to repair common JSON issues from LLM output
+function repairJSON(jsonString: string): string {
+  // Replace actual control characters with escaped versions
+  // Do this character by character to track string context
+  let inString = false;
+  let result = '';
+
+  for (let i = 0; i < jsonString.length; i++) {
+    const char = jsonString[i];
+    const prevChar = i > 0 ? jsonString[i - 1] : '';
+
+    // Track if we're inside a JSON string (unescaped quote toggles)
+    if (char === '"' && prevChar !== '\\') {
+      inString = !inString;
+      result += char;
+    } else if (inString) {
+      // If we're in a string, escape control characters
+      if (char === '\n') {
+        result += '\\n';
+      } else if (char === '\r') {
+        result += '\\r';
+      } else if (char === '\t') {
+        result += '\\t';
+      } else {
+        result += char;
+      }
+    } else {
+      result += char;
+    }
+  }
+
+  // Remove any trailing commas before closing brackets/braces
+  result = result.replace(/,(\s*[}\]])/g, '$1');
+
+  return result;
+}
+
+export async function generateJSONResponse<T>(
+  messages: LLMMessage[],
+  options: LLMOptions = {}
+): Promise<T> {
+  // Add instruction for JSON output
+  const jsonMessages = [...messages];
+  const lastMessage = jsonMessages[jsonMessages.length - 1];
+
+  if (lastMessage && lastMessage.role === "user") {
+    lastMessage.content += "\n\nIMPORTANT: Respond with valid JSON only. No markdown code blocks, no explanation, no text before or after - just the raw JSON object starting with { and ending with }. Ensure all special characters in strings are properly escaped (newlines as \\n, tabs as \\t, quotes as \\\").";
+  }
+
+  const response = await generateLLMResponse(jsonMessages, options);
+
+  // Try to parse the response as JSON
+  let cleanedResponse = response.trim();
+
+  // Remove markdown code blocks
+  if (cleanedResponse.startsWith("```json")) {
+    cleanedResponse = cleanedResponse.slice(7);
+  } else if (cleanedResponse.startsWith("```")) {
+    cleanedResponse = cleanedResponse.slice(3);
+  }
+  if (cleanedResponse.endsWith("```")) {
+    cleanedResponse = cleanedResponse.slice(0, -3);
+  }
+  cleanedResponse = cleanedResponse.trim();
+
+  // Try to extract JSON object from the response if it has surrounding text
+  const jsonStartIndex = cleanedResponse.indexOf("{");
+  const jsonEndIndex = cleanedResponse.lastIndexOf("}");
+
+  if (jsonStartIndex !== -1 && jsonEndIndex !== -1 && jsonEndIndex > jsonStartIndex) {
+    cleanedResponse = cleanedResponse.slice(jsonStartIndex, jsonEndIndex + 1);
+  }
+
+  // First attempt: parse as-is
+  try {
+    return JSON.parse(cleanedResponse) as T;
+  } catch (firstError) {
+    // Second attempt: try to repair common issues
+    console.log("First JSON parse failed, attempting repair...");
+
+    try {
+      const repairedResponse = repairJSON(cleanedResponse);
+      return JSON.parse(repairedResponse) as T;
+    } catch (repairError) {
+      // Log for debugging
+      console.error("Failed to parse LLM response as JSON. First 500 chars:", response.slice(0, 500));
+      console.error("Last 100 chars:", response.slice(-100));
+
+      // Check if response appears truncated (starts with { but doesn't end with })
+      const trimmed = response.trim();
+      if (trimmed.startsWith("{") && !trimmed.endsWith("}")) {
+        throw new Error("LLM response was truncated (incomplete JSON). The response may be too long. Try simplifying your course structure or reducing the number of modules.");
+      }
+
+      throw new Error(`LLM response was not valid JSON. Response started with: "${response.slice(0, 100)}..." and ended with: "...${response.slice(-50)}"`);
+    }
+  }
+}
