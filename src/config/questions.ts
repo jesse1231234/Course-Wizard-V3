@@ -106,36 +106,35 @@ export const sections: Section[] = [
     questions: [
       {
         id: "learning-objectives",
-        type: "textarea",
+        type: "skill-list",
         label: "List 3-6 things that students will be able to do after completing the course that they couldn't do before (or will improve at).",
-        description: "Enter each skill or outcome on its own line. Focus on concrete, observable abilities.",
-        placeholder: "1. Analyze datasets using Python to identify meaningful patterns\n2. Design and conduct controlled experiments with proper methodology\n3. Communicate findings through clear data visualizations and written reports",
+        description: "Focus on concrete, observable abilities. Each skill gets its own text box.",
         required: true,
-        validation: { minLength: 30, maxLength: 3000 },
+        validation: { minLength: 10, maxLength: 500 },
         feedbackEnabled: true,
-        feedbackInstructions: `Check that the user's inputs describe skills or abilities, and that the descriptions of those skills are measurable (i.e., you could observe or assess whether a student has achieved them).
+        feedbackInstructions: `Check that this skill or ability is measurable (i.e., you could observe or assess whether a student has achieved it).
 
 If suggestions are warranted, guide the user toward:
-- Focusing on concrete skills rather than abstract knowledge ("analyze data" rather than "understand data")
-- Making outcomes measurable and observable ("design an experiment" rather than "appreciate the scientific method")
+- Focusing on a concrete skill rather than abstract knowledge ("analyze data" rather than "understand data")
+- Making the outcome measurable and observable ("design an experiment" rather than "appreciate the scientific method")
 - Using specific action verbs that indicate what students will DO
 
 Provide a brief rationale for any suggestions.`,
       },
       {
         id: "skill-activities",
-        type: "textarea",
-        label: "For each skill you just listed, describe 3-6 types of activities that would help students develop or improve those skills.",
-        description: "You can describe general activity types if you don't have specifics in mind yet. Try to explain how each type of activity will help improve the skill. Organize your response by skill.",
-        placeholder: "Skill 1: Analyze datasets using Python\n- Guided lab exercises with sample datasets (builds hands-on familiarity)\n- Peer data analysis challenges (encourages exploration and collaboration)\n- Real-world dataset investigation project (applies skills to authentic problems)\n\nSkill 2: Design and conduct experiments\n- Practice designing mini-experiments in class (low-stakes skill building)\n- Group experiment design and critique sessions (learn from peer approaches)\n...",
+        type: "skill-detail",
+        label: "For each skill, describe 3-6 types of activities that would help students develop or improve that skill.",
+        description: "You can describe general activity types if you don't have specifics in mind yet. Try to explain how each type of activity will help improve the skill.",
+        parentQuestionId: "learning-objectives",
         required: true,
-        validation: { minLength: 50, maxLength: 5000 },
+        validation: { minLength: 20, maxLength: 2000 },
         feedbackEnabled: true,
-        feedbackInstructions: `Check for alignment between the skills listed in the user's previous response (course objectives) and the activities described here.
+        feedbackInstructions: `Check for alignment between the skill stated above and the activities described here.
 
 Focus suggestions on:
-- Alignment: Do the activities clearly support the skills they're meant to develop?
-- Experiential learning: Encourage the user to consider hands-on, project-based, and experiential activities rather than relying solely on reading/writing/lecture-based approaches
+- Alignment: Do the activities clearly support this specific skill?
+- Experiential learning: Encourage hands-on, project-based, and experiential activities rather than relying solely on reading/writing/lecture-based approaches
 - Diversity of activities: Are there varied activity types (individual, collaborative, hands-on, reflective)? If activities feel repetitive or one-dimensional, suggest additional types
 - How each activity builds the target skill
 
@@ -143,19 +142,19 @@ Provide a brief rationale for any suggestions.`,
       },
       {
         id: "skill-assessments",
-        type: "textarea",
+        type: "skill-detail",
         label: "For each skill, how will you know when students have improved at or mastered this skill?",
         description: "Describe the evidence, performance, or criteria you'd look for to know a student has achieved each skill.",
-        placeholder: "Skill 1: Analyze datasets - Students can independently clean, explore, and draw valid conclusions from an unfamiliar dataset without guidance.\n\nSkill 2: Design experiments - Students can write a complete experiment proposal with proper controls, variables, and methodology...",
+        parentQuestionId: "learning-objectives",
         required: true,
-        validation: { minLength: 30, maxLength: 3000 },
+        validation: { minLength: 15, maxLength: 1000 },
         feedbackEnabled: true,
-        feedbackInstructions: `Check for alignment between these assessment/mastery indicators and the course objectives (skills) and activities already provided.
+        feedbackInstructions: `Check for alignment between this assessment/mastery indicator and the skill and activities already provided.
 
 Focus suggestions on:
-- Do the indicators align with the stated skills? Can these actually measure improvement in the target skill?
-- Do the assessment approaches connect back to the activities described for each skill?
-- Are the indicators specific enough to distinguish mastery from partial understanding?
+- Does the indicator align with the stated skill? Can it actually measure improvement in the target skill?
+- Does the assessment approach connect back to the activities described for this skill?
+- Is the indicator specific enough to distinguish mastery from partial understanding?
 
 If misalignment is found, provide suggestions for improvement with a brief rationale.`,
       },
