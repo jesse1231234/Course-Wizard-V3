@@ -1,5 +1,5 @@
 // Question types
-export type QuestionType = "text" | "textarea" | "select" | "multiselect" | "number";
+export type QuestionType = "text" | "textarea" | "select" | "multiselect" | "number" | "skill-list" | "skill-detail";
 
 export interface QuestionOption {
   value: string;
@@ -22,6 +22,7 @@ export interface Question {
   };
   feedbackEnabled?: boolean;
   feedbackInstructions?: string;
+  parentQuestionId?: string;  // For skill-detail: references the skill-list question
 }
 
 export interface Section {
