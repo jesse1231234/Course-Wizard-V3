@@ -162,7 +162,13 @@ export default function ReviewPage() {
                         {questionLabel}
                       </div>
                       <div className="text-sm text-slate-600 mt-0.5">
-                        {Array.isArray(value) ? value.join(", ") : (
+                        {Array.isArray(value) ? (
+                          <ol className="list-decimal list-inside space-y-1">
+                            {value.filter(item => item.trim()).map((item, i) => (
+                              <li key={i}>{item.length > 150 ? `${item.slice(0, 150)}...` : item}</li>
+                            ))}
+                          </ol>
+                        ) : (
                           value.length > 200 ? `${value.slice(0, 200)}...` : value
                         )}
                       </div>
